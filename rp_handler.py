@@ -161,7 +161,9 @@ def handler(job):
             'stream': payload.get('stream')
         })
 
-        return outputs.replace('</s>', '')
+        return {
+            'response': outputs.replace('</s>', '')
+        }
     except Exception as e:
         raise
 

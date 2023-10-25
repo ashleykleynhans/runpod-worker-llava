@@ -9,8 +9,8 @@ Large Language and Vision Assistant.
 | Model                                                              | Environment Variable Value  | Default |
 |--------------------------------------------------------------------|-----------------------------|---------|
 | [llava-v1.5-13b](https://huggingface.co/liuhaotian/llava-v1.5-13b) | liuhaotian/llava-v1.5-13b   | no      |
-| [llava-v1.5-7b](https://huggingface.co/liuhaotian/llava-v1.5-7b)   | liuhaotian/llava-v1.5-7b    | no      |
-| [BakLLaVA-1](https://huggingface.co/SkunkworksAI/BakLLaVA-1)       | SkunkworksAI/BakLLaVA-1     | yes     |
+| [llava-v1.5-7b](https://huggingface.co/liuhaotian/llava-v1.5-7b)   | liuhaotian/llava-v1.5-7b    | yes     |
+| [BakLLaVA-1](https://huggingface.co/SkunkworksAI/BakLLaVA-1)       | SkunkworksAI/BakLLaVA-1     | no      |
 
 ## Testing
 
@@ -45,7 +45,7 @@ was successful.
 
 ### RunPod API Examples
 
-TODO: Examples go here
+* [Generate](docs/api/generate.md)
 
 ### Endpoint Status Codes
 
