@@ -1,13 +1,8 @@
-import io
 import time
 import json
-import uuid
 import base64
 import requests
-from PIL import Image
 from dotenv import dotenv_values
-
-OUTPUT_FORMAT = 'JPEG'
 
 
 def encode_image_to_base64(image_path):
@@ -15,21 +10,8 @@ def encode_image_to_base64(image_path):
         return str(base64.b64encode(image_file.read()).decode('utf-8'))
 
 
-def save_result_image(resp_json):
-    img = Image.open(io.BytesIO(base64.b64decode(resp_json['output']['image'])))
-    file_extension = 'jpeg' if OUTPUT_FORMAT == 'JPEG' else 'png'
-    output_file = f'{uuid.uuid4()}.{file_extension}'
-
-    with open(output_file, 'wb') as f:
-        print(f'Saving image: {output_file}')
-        img.save(f, format=OUTPUT_FORMAT)
-
-
 def handle_response(resp_json):
-    if resp_json['output'] is not None and 'image' in resp_json['output']:
-        save_result_image(resp_json)
-    else:
-        print(json.dumps(resp_json, indent=4, default=str))
+    print(json.dumps(resp_json, indent=4, default=str))
 
 
 def post_request(payload):
