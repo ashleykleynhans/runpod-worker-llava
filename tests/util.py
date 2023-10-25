@@ -14,7 +14,7 @@ def handle_response(resp_json):
     print(json.dumps(resp_json, indent=4, default=str))
 
 
-def post_request(payload):
+def post_request(payload, api=None):
     env = dotenv_values('.env')
     runpod_api_key = env.get('RUNPOD_API_KEY', None)
     runpod_endpoint_id = env.get('RUNPOD_ENDPOINT_ID', None)
@@ -24,8 +24,13 @@ def post_request(payload):
     else:
         base_url = f'http://127.0.0.1:8000'
 
+    if api is not None:
+        uri = base_url + '/' + api.lstrip('/')
+    else:
+        uri = f'{base_url}/runsync'
+
     r = requests.post(
-        f'{base_url}/runsync',
+        uri,
         headers={
             'Authorization': f'Bearer {runpod_api_key}'
         },

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# Replace the single source face into the single target face
 from util import post_request, encode_image_to_base64
 
 MODEL_PATH = 'liuhaotian/llava-v1.5-7b'

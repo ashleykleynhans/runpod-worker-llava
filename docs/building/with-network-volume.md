@@ -17,8 +17,10 @@ git clone https://github.com/ashleykleynhans/runpod-worker-llava.git
 cd runpod-worker-llava
 python3 -m venv venv
 source venv/bin/activate
+pip3 install --no-cache-dir torch==2.0.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+pip3 install --no-cache-dir xformers==0.0.22
 pip3 install -r requirements.txt
-apt update
+pip3 install transformers==4.34.1
 ```
 7. Edit the `create_test_json.py` file and ensure that you set `IMAGE` to
    a valid image (you can upload the image to your pod using
