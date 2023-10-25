@@ -36,7 +36,7 @@ def load_image(image_file):
         response = requests.get(image_file)
         image = Image.open(BytesIO(response.content)).convert('RGB')
     else:
-        image = Image.open(image_file).convert('RGB')
+        image = load_image_from_base64(image_file)
     return image
 
 
@@ -85,7 +85,7 @@ def run_inference(data):
     else:
         roles = conv.roles
 
-    image = load_image_from_base64(data['image_base64'])
+    image = load_image(data['image'])
     image_tensor = process_images([image], image_processor, DictToObject(data))
 
     if type(image_tensor) is list:
