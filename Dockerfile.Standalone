@@ -44,10 +44,11 @@ RUN git clone https://github.com/ashleykleynhans/runpod-worker-llava.git && \
     pip3 install transformers==4.34.1
 
 # Download the model
+COPY --chmod=755 download_model.py /download_model.py
 ENV HUGGINGFACE_HUB_CACHE="/workspace/huggingface-cache/hub"
 ENV TRANSFORMERS_CACHE="/workspace/huggingface-cache/hub"
 ENV MODEL=""
-RUN python3 download_model.py
+RUN python3 /download_model.py
 
 # Docker container start script
 COPY --chmod=755 start_standalone.sh /start.sh
