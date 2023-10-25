@@ -32,6 +32,8 @@ RUN apt update && \
     apt-get clean -y
 
 # Docker container start script
+ENV HUGGINGFACE_HUB_CACHE="/runpod-volume/huggingface-cache/hub"
+ENV TRANSFORMERS_CACHE="/runpod-volume/huggingface-cache/hub"
 COPY start_network_volume.sh /start.sh
 
 # Start the container
