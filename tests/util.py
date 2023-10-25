@@ -4,14 +4,34 @@ import base64
 import requests
 from dotenv import dotenv_values
 
+STATUS_IN_QUEUE = 'IN_QUEUE'
+STATUS_IN_PROGRESS = 'IN_PROGRESS'
+STATUS_FAILED = 'FAILED'
+STATUS_COMPLETED = 'COMPLETED'
+STATUS_TIMED_OUT = 'TIMED_OUT'
+
+
+class Timer:
+    def __init__(self):
+        self.start = time.time()
+
+    def restart(self):
+        self.start = time.time()
+
+    def get_elapsed_time(self):
+        end = time.time()
+        return round(end - self.start, 1)
+
 
 def encode_image_to_base64(image_path):
     with open(image_path, 'rb') as image_file:
         return str(base64.b64encode(image_file.read()).decode('utf-8'))
 
 
-def handle_response(resp_json):
+def handle_response(resp_json, timer):
     print(json.dumps(resp_json, indent=4, default=str))
+    total_time = timer.get_elapsed_time()
+    print(f'Total time taken for RunPod Serverless API call {total_time} seconds')
 
 
 def post_request(payload, api=None):
@@ -29,6 +49,8 @@ def post_request(payload, api=None):
     else:
         uri = f'{base_url}/runsync'
 
+    timer = Timer()
+
     r = requests.post(
         uri,
         headers={
@@ -43,12 +65,16 @@ def post_request(payload, api=None):
         resp_json = r.json()
 
         if 'output' in resp_json:
-            handle_response(resp_json)
+            handle_response(resp_json, timer)
         else:
-            job_status = resp_json['status']
+            if 'status' in resp_json:
+                job_status = resp_json['status']
+            else:
+                job_status = STATUS_FAILED
+
             print(f'Job status: {job_status}')
 
-            if job_status == 'IN_QUEUE' or job_status == 'IN_PROGRESS':
+            if job_status == STATUS_IN_QUEUE or job_status == STATUS_IN_PROGRESS:
                 request_id = resp_json['id']
                 request_in_queue = True
 
@@ -66,29 +92,39 @@ def post_request(payload, api=None):
                         resp_json = r.json()
                         job_status = resp_json['status']
 
-                        if job_status == 'IN_QUEUE' or job_status == 'IN_PROGRESS':
+                        if job_status == STATUS_IN_QUEUE or job_status == STATUS_IN_PROGRESS:
                             print(f'RunPod request {request_id} is {job_status}, sleeping for 5 seconds...')
                             time.sleep(5)
-                        elif job_status == 'FAILED':
+                        elif job_status == STATUS_FAILED:
                             request_in_queue = False
                             print(f'RunPod request {request_id} failed')
                             print(json.dumps(resp_json, indent=4, default=str))
-                        elif job_status == 'COMPLETED':
+                        elif job_status == STATUS_COMPLETED:
                             request_in_queue = False
                             print(f'RunPod request {request_id} completed')
-                            handle_response(resp_json)
-                        elif job_status == 'TIMED_OUT':
+                            handle_response(resp_json, timer)
+                        elif job_status == STATUS_TIMED_OUT:
                             request_in_queue = False
                             print(f'ERROR: RunPod request {request_id} timed out')
                         else:
                             request_in_queue = False
                             print(f'ERROR: Invalid status response from RunPod status endpoint')
                             print(json.dumps(resp_json, indent=4, default=str))
-            elif job_status == 'COMPLETED' \
+            elif job_status == STATUS_COMPLETED \
                     and 'output' in resp_json \
                     and 'status' in resp_json['output'] \
                     and resp_json['output']['status'] == 'error':
                 print(f'ERROR: {resp_json["output"]["message"]}')
+            elif job_status == STATUS_FAILED:
+                print('ERROR: Job FAILED!')
+
+                try:
+                    error = json.loads(resp_json['error'])
+                    print(error['error_type'])
+                    print(error['error_message'])
+                    print(error['error_traceback'])
+                except Exception as e:
+                    print(json.dumps(resp_json, indent=4, default=str))
             else:
                 print(json.dumps(resp_json, indent=4, default=str))
     else:
