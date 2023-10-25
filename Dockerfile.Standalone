@@ -47,7 +47,7 @@ RUN git clone https://github.com/ashleykleynhans/runpod-worker-llava.git && \
 COPY --chmod=755 download_model.py /download_model.py
 ENV HUGGINGFACE_HUB_CACHE="/workspace/huggingface-cache/hub"
 ENV TRANSFORMERS_CACHE="/workspace/huggingface-cache/hub"
-ENV MODEL=""
+ENV MODEL="liuhaotian/llava-v1.5-7b"
 RUN python3 /download_model.py
 
 # Docker container start script
