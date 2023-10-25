@@ -22,20 +22,15 @@ pip3 install --no-cache-dir xformers==0.0.22
 pip3 install -r requirements.txt
 pip3 install transformers==4.34.1
 ```
-7. Edit the `create_test_json.py` file and ensure that you set `IMAGE` to
-   a valid image (you can upload the image to your pod using
-   [runpodctl](https://github.com/runpod/runpodctl/releases)).
-8. Create the `test_input.json` file by running the `create_test_json.py` script:
+7. Download the models:
 ```bash
-python3 create_test_json.py
+export HUGGINGFACE_HUB_CACHE="/workspace/huggingface-cache/hub"
+export TRANSFORMERS_CACHE="/workspace/huggingface-cache/hub"
+export MODEL="liuhaotian/llava-v1.5-7b"
+python3 download_models.py
 ```
-9. Run an inference on the `test_input.json` input so that the models can be cached on
-   your Network Volume, which will dramatically reduce cold start times for RunPod Serverless:
-```bash
-python3 -u rp_handler.py
-```
-10. Sign up for a Docker hub account if you don't already have one.
-11. Build the Docker image and push to Docker hub:
+8. Sign up for a Docker hub account if you don't already have one.
+9. Build the Docker image and push to Docker hub:
 ```bash
 docker build -t dockerhub-username/runpod-worker-llava:1.0.0 -f Dockerfile.Network_Volume .
 docker login
