@@ -20,6 +20,9 @@ from transformers import TextStreamer
 from schemas.input import INPUT_SCHEMA
 
 
+disable_torch_init()
+
+
 class DictToObject:
     def __init__(self, dictionary):
         for key, value in dictionary.items():
@@ -29,7 +32,7 @@ class DictToObject:
 # ---------------------------------------------------------------------------- #
 # Application Functions                                                        #
 # ---------------------------------------------------------------------------- #
-def load_image(image_file):
+def load_image(image_file: str):
     if image_file.startswith('http://') or image_file.startswith('https://'):
         response = requests.get(image_file)
         image = Image.open(BytesIO(response.content)).convert('RGB')
@@ -38,18 +41,18 @@ def load_image(image_file):
     return image
 
 
-def load_image_from_base64(base64_str):
+def load_image_from_base64(base64_str: str):
     image_bytes = base64.b64decode(base64_str)
     image = Image.open(BytesIO(image_bytes)).convert('RGB')
     return image
 
 
-def run_inference(data, current_model_path):
+def run_inference(data: dict, current_model_path: str, tokenizer, model, image_processor, context_len):
     model_path = data.get('model_path')
+    model_name = get_model_name_from_path(model_path)
 
     if current_model_path != model_path:
         CURRENT_MODEL_PATH = model_path
-        model_name = get_model_name_from_path(CURRENT_MODEL_PATH)
 
         tokenizer, model, image_processor, context_len = load_pretrained_model(
             CURRENT_MODEL_PATH,
@@ -161,7 +164,11 @@ def handler(job):
                 'image_aspect_ratio': payload.get('image_aspect_ratio'),
                 'stream': payload.get('stream')
             },
-            CURRENT_MODEL_PATH
+            CURRENT_MODEL_PATH,
+            tokenizer,
+            model,
+            image_processor,
+            context_len
         )
 
         return {
@@ -183,8 +190,8 @@ if __name__ == '__main__':
     logger = RunPodLogger()
 
     # Model
-    disable_torch_init()
     model_name = get_model_name_from_path(INITIAL_MODEL_PATH)
+    logger.info(f'Loading model: {model_name}')
 
     tokenizer, model, image_processor, context_len = load_pretrained_model(
         INITIAL_MODEL_PATH,
