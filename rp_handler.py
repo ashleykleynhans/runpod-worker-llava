@@ -1,3 +1,5 @@
+import os
+
 import torch
 import requests
 import base64
@@ -24,10 +26,6 @@ class DictToObject:
             setattr(self, key, value)
 
 
-TMP_PATH = '/tmp/llava'
-logger = RunPodLogger()
-
-
 # ---------------------------------------------------------------------------- #
 # Application Functions                                                        #
 # ---------------------------------------------------------------------------- #
@@ -46,19 +44,21 @@ def load_image_from_base64(base64_str):
     return image
 
 
-def run_inference(data):
-    # Model
-    disable_torch_init()
-    model_name = get_model_name_from_path(data['model_path'])
+def run_inference(data, current_model_path):
+    model_path = data.get('model_path')
 
-    tokenizer, model, image_processor, context_len = load_pretrained_model(
-        data['model_path'],
-        data['model_base'],
-        model_name,
-        data['load_8bit'],
-        data['load_4bit'],
-        device='cuda'
-    )
+    if current_model_path != model_path:
+        CURRENT_MODEL_PATH = model_path
+        model_name = get_model_name_from_path(CURRENT_MODEL_PATH)
+
+        tokenizer, model, image_processor, context_len = load_pretrained_model(
+            CURRENT_MODEL_PATH,
+            MODEL_BASE,
+            model_name,
+            LOAD_8BIT,
+            LOAD_4BIT,
+            device='cuda'
+        )
 
     if 'llama-2' in model_name.lower():
         conv_mode = 'llava_llama_2'
@@ -147,19 +147,22 @@ def handler(job):
     try:
         payload = validated_input['validated_input']
 
-        outputs = run_inference({
-            'model_path': payload.get('model_path'),
-            'model_base': payload.get('model_base'),
-            'image': payload.get('image'),
-            'prompt': payload.get('prompt'),
-            'conv_mode': payload.get('conv_mode'),
-            'temperature': payload.get('temperature'),
-            'max_new_tokens': payload.get('max_new_tokens'),
-            'load_8bit': payload.get('load_8bit'),
-            'load_4bit': payload.get('load_4bit'),
-            'image_aspect_ratio': payload.get('image_aspect_ratio'),
-            'stream': payload.get('stream')
-        })
+        outputs = run_inference(
+            {
+                'model_path': payload.get('model_path'),
+                'model_base': payload.get('model_base'),
+                'image': payload.get('image'),
+                'prompt': payload.get('prompt'),
+                'conv_mode': payload.get('conv_mode'),
+                'temperature': payload.get('temperature'),
+                'max_new_tokens': payload.get('max_new_tokens'),
+                'load_8bit': payload.get('load_8bit'),
+                'load_4bit': payload.get('load_4bit'),
+                'image_aspect_ratio': payload.get('image_aspect_ratio'),
+                'stream': payload.get('stream')
+            },
+            CURRENT_MODEL_PATH
+        )
 
         return {
             'response': outputs.replace('</s>', '')
@@ -172,6 +175,26 @@ def handler(job):
 # RunPod Handler                                                               #
 # ---------------------------------------------------------------------------- #
 if __name__ == '__main__':
+    INITIAL_MODEL_PATH = os.getenv('MODEL', 'liuhaotian/llava-v1.5-7b')
+    CURRENT_MODEL_PATH = INITIAL_MODEL_PATH
+    MODEL_BASE = None
+    LOAD_4BIT = False
+    LOAD_8BIT = False
+    logger = RunPodLogger()
+
+    # Model
+    disable_torch_init()
+    model_name = get_model_name_from_path(INITIAL_MODEL_PATH)
+
+    tokenizer, model, image_processor, context_len = load_pretrained_model(
+        INITIAL_MODEL_PATH,
+        MODEL_BASE,
+        model_name,
+        LOAD_8BIT,
+        LOAD_4BIT,
+        device='cuda'
+    )
+
     logger.info('Starting RunPod Serverless...')
     runpod.serverless.start(
         {
