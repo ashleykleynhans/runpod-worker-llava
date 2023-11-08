@@ -1,3 +1,4 @@
+import sys
 import time
 import json
 import base64
@@ -34,27 +35,55 @@ def handle_response(resp_json, timer):
     print(f'Total time taken for RunPod Serverless API call {total_time} seconds')
 
 
-def post_request(payload, api=None):
+def get_endpoint_details():
     env = dotenv_values('.env')
-    runpod_api_key = env.get('RUNPOD_API_KEY', None)
-    runpod_endpoint_id = env.get('RUNPOD_ENDPOINT_ID', None)
+    api_key = env.get('RUNPOD_API_KEY', None)
+    endpoint_id = env.get('RUNPOD_ENDPOINT_ID', None)
 
-    if runpod_api_key is not None and runpod_endpoint_id is not None:
-        base_url = f'https://api.runpod.ai/v2/{runpod_endpoint_id}'
+    return api_key, endpoint_id
+
+
+def cancel_task(task_id):
+    api_key, endpoint_id = get_endpoint_details()
+
+    return requests.post(
+        f'https://api.runpod.ai/v2/{endpoint_id}/cancel/{task_id}',
+        headers={
+            'Authorization': f'Bearer {api_key}'
+        }
+    )
+
+
+def purge_queue():
+    api_key, endpoint_id = get_endpoint_details()
+
+    return requests.post(
+        f'https://api.runpod.ai/v2/{endpoint_id}/purge-queue',
+        headers={
+            'Authorization': f'Bearer {api_key}'
+        }
+    )
+
+
+def post_request(payload, api=None):
+    api_key, endpoint_id = get_endpoint_details()
+
+    if api_key is not None and endpoint_id is not None:
+        base_uri = f'https://api.runpod.ai/v2/{endpoint_id}'
     else:
-        base_url = f'http://127.0.0.1:8000'
+        base_uri = f'http://127.0.0.1:8000'
 
     if api is not None:
-        uri = base_url + '/' + api.lstrip('/')
+        uri = base_uri + '/' + api.lstrip('/')
     else:
-        uri = f'{base_url}/runsync'
+        uri = f'{base_uri}/runsync'
 
     timer = Timer()
 
     r = requests.post(
         uri,
         headers={
-            'Authorization': f'Bearer {runpod_api_key}'
+            'Authorization': f'Bearer {api_key}'
         },
         json=payload
     )
@@ -80,9 +109,9 @@ def post_request(payload, api=None):
 
                 while request_in_queue:
                     r = requests.get(
-                        f'{base_url}/status/{request_id}',
+                        f'{base_uri}/status/{request_id}',
                         headers={
-                            'Authorization': f'Bearer {runpod_api_key}'
+                            'Authorization': f'Bearer {api_key}'
                         },
                     )
 
@@ -129,3 +158,58 @@ def post_request(payload, api=None):
                 print(json.dumps(resp_json, indent=4, default=str))
     else:
         print(f'ERROR: {r.content}')
+
+
+def stream(payload):
+    api_key, endpoint_id = get_endpoint_details()
+    uri = 'https://api.runpod.ai/v2/{endpoint_id}/run'
+
+    response = requests.post(
+        uri,
+        json=dict(input=payload),
+        headers={
+            'Authorization': f'Bearer {api_key}'
+        }
+    )
+
+    if response.status_code == 200:
+        data = response.json()
+        task_id = data.get('id')
+        return stream_output(task_id)
+
+
+def stream_output(task_id):
+    api_key, endpoint_id = get_endpoint_details()
+
+    uri = f'https://api.runpod.ai/v2/{endpoint_id}/stream/{task_id}'
+
+    headers = {
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    previous_output = ''
+
+    try:
+        while True:
+            response = requests.get(uri, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                if len(data['stream']) > 0:
+                    new_output = data['stream'][0]['output']
+                    sys.stdout.write(new_output[len(previous_output):])
+                    sys.stdout.flush()
+                    previous_output = new_output
+
+                if data.get('status') == 'COMPLETED':
+                    break
+
+            elif response.status_code >= 400:
+                print(response)
+
+            # Sleep for 0.1 seconds between each request
+            time.sleep(0.1 if stream else 1)
+    except Exception as e:
+        print(e)
+        cancel_task(task_id)

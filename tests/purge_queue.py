@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-from util import post_request
+import json
+from util import purge_queue
 
 
 if __name__ == '__main__':
-    # Create the payload dictionary
-    payload = {}
+    r = purge_queue()
 
-    post_request(payload, '/purge-queue')
+    print(r.status_code)
+    print(json.dumps(r.json(), indent=4, default=str))
