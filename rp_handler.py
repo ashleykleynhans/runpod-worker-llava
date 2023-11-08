@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import requests
 import base64
@@ -16,12 +17,29 @@ from llava.mm_utils import process_images, tokenizer_image_token, get_model_name
 from PIL import Image
 from io import BytesIO
 from transformers import TextStreamer
-from typing import Generator, Union
 from threading import Thread
 from schemas.input import INPUT_SCHEMA
 
 
+INITIAL_MODEL_PATH = os.getenv('MODEL', 'liuhaotian/llava-v1.5-7b')
+CURRENT_MODEL_PATH = INITIAL_MODEL_PATH
+MODEL_BASE = None
+LOAD_4BIT = False
+LOAD_8BIT = False
+logger = RunPodLogger()
 disable_torch_init()
+
+model_name = get_model_name_from_path(INITIAL_MODEL_PATH)
+logger.info(f'Loading model: {model_name}')
+
+tokenizer, model, image_processor, context_len = load_pretrained_model(
+    INITIAL_MODEL_PATH,
+    MODEL_BASE,
+    model_name,
+    LOAD_8BIT,
+    LOAD_4BIT,
+    device='cuda'
+)
 
 
 class DictToObject:
@@ -61,116 +79,9 @@ def generate_wrapper(input_ids, image_tensor, temperature, max_new_tokens, strea
     )
 
 
-def run_inference(data: dict, current_model_path: str, tokenizer, model, image_processor, context_len):
-    model_path = data.get('model_path')
-    model_name = get_model_name_from_path(model_path)
-
-    if current_model_path != model_path:
-        CURRENT_MODEL_PATH = model_path
-
-        tokenizer, model, image_processor, context_len = load_pretrained_model(
-            CURRENT_MODEL_PATH,
-            MODEL_BASE,
-            model_name,
-            LOAD_8BIT,
-            LOAD_4BIT,
-            device='cuda'
-        )
-
-    if 'llama-2' in model_name.lower():
-        conv_mode = 'llava_llama_2'
-    elif 'v1' in model_name.lower():
-        conv_mode = 'llava_v1'
-    elif 'mpt' in model_name.lower():
-        conv_mode = 'mpt'
-    else:
-        conv_mode = 'llava_v0'
-
-    if data['conv_mode'] is not None and conv_mode != data['conv_mode']:
-        print('[WARNING] the auto inferred conversation mode is {}, while `--conv-mode` is {}, using {}'.format(
-            conv_mode,
-            data['conv_mode'],
-            data['conv_mode']
-        ))
-    else:
-        data['conv_mode'] = conv_mode
-
-    conv = conv_templates[data['conv_mode']].copy()
-
-    if 'mpt' in model_name.lower():
-        roles = ('user', 'assistant')
-    else:
-        roles = conv.roles
-
-    image = load_image(data['image'])
-    image_tensor = process_images([image], image_processor, DictToObject(data))
-
-    if type(image_tensor) is list:
-        image_tensor = [image.to(model.device, dtype=torch.float16) for image in image_tensor]
-    else:
-        image_tensor = image_tensor.to(model.device, dtype=torch.float16)
-
-    inp = data['prompt']
-
-    if image is not None:
-        # first message
-        if model.config.mm_use_im_start_end:
-            inp = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + inp
-        else:
-            inp = DEFAULT_IMAGE_TOKEN + '\n' + inp
-        conv.append_message(conv.roles[0], inp)
-        image = None
-    else:
-        # later messages
-        conv.append_message(conv.roles[0], inp)
-
-    conv.append_message(conv.roles[1], None)
-    prompt = conv.get_prompt()
-
-    input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
-    stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
-    keywords = [stop_str]
-    stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
-
-    if data['stream']:
-        streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
-
-        thread = Thread(
-            target=generate_wrapper,
-            args=(
-                input_ids,
-                image_tensor,
-                data['temperature'],
-                data['max_new_tokens'],
-                streamer,
-                [stopping_criteria]
-            )
-        )
-
-        thread.start()
-
-        for new_text in streamer:
-            yield new_text
-    else:
-        streamer = None
-
-        with torch.inference_mode():
-            output_ids = generate_wrapper(
-                input_ids,
-                image_tensor,
-                data['temperature'],
-                data['max_new_tokens'],
-                streamer,
-                [stopping_criteria]
-            )
-
-        # Decode the tensor to string
-        outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:], skip_special_tokens=True).strip()
-        conv.messages[-1][-1] = outputs
-        yield outputs
-
-
-def handler(job) -> Union[dict, str, Generator[str, None, None]]:
+def handler(job):
+    global CURRENT_MODEL_PATH
+    global tokenizer, model, image_processor, context_len
     validated_input = validate(job['input'], INPUT_SCHEMA)
 
     if 'errors' in validated_input:
@@ -196,19 +107,114 @@ def handler(job) -> Union[dict, str, Generator[str, None, None]]:
             'stream': stream
         }
 
-        outputs = run_inference(
-            data,
-            CURRENT_MODEL_PATH,
-            tokenizer,
-            model,
-            image_processor,
-            context_len
-        )
+        model_path = data.get('model_path')
+        model_name = get_model_name_from_path(model_path)
 
-        if stream:
-            yield outputs
+        if CURRENT_MODEL_PATH != model_path:
+            CURRENT_MODEL_PATH = model_path
+
+            tokenizer, model, image_processor, context_len = load_pretrained_model(
+                CURRENT_MODEL_PATH,
+                MODEL_BASE,
+                model_name,
+                LOAD_8BIT,
+                LOAD_4BIT,
+                device='cuda'
+            )
+
+        if 'llama-2' in model_name.lower():
+            conv_mode = 'llava_llama_2'
+        elif 'v1' in model_name.lower():
+            conv_mode = 'llava_v1'
+        elif 'mpt' in model_name.lower():
+            conv_mode = 'mpt'
         else:
-            yield '\n'.join([output.replace('</s>', '') for output in outputs])
+            conv_mode = 'llava_v0'
+
+        if data['conv_mode'] is not None and conv_mode != data['conv_mode']:
+            logger.warn('The auto inferred conversation mode is {}, while `--conv-mode` is {}, using {}'.format(
+                conv_mode,
+                data['conv_mode'],
+                data['conv_mode']
+            ))
+        else:
+            data['conv_mode'] = conv_mode
+
+        conv = conv_templates[data['conv_mode']].copy()
+
+        if 'mpt' in model_name.lower():
+            roles = ('user', 'assistant')
+        else:
+            roles = conv.roles
+
+        image = load_image(data['image'])
+        image_tensor = process_images([image], image_processor, DictToObject(data))
+
+        if type(image_tensor) is list:
+            image_tensor = [image.to(model.device, dtype=torch.float16) for image in image_tensor]
+        else:
+            image_tensor = image_tensor.to(model.device, dtype=torch.float16)
+
+        inp = data['prompt']
+
+        if image is not None:
+            # first message
+            if model.config.mm_use_im_start_end:
+                inp = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + inp
+            else:
+                inp = DEFAULT_IMAGE_TOKEN + '\n' + inp
+            conv.append_message(conv.roles[0], inp)
+            image = None
+        else:
+            # later messages
+            conv.append_message(conv.roles[0], inp)
+
+        conv.append_message(conv.roles[1], None)
+        prompt = conv.get_prompt()
+
+        input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
+        stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
+        keywords = [stop_str]
+        stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
+
+        if data['stream']:
+            streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+
+            thread = Thread(
+                target=generate_wrapper,
+                args=(
+                    input_ids,
+                    image_tensor,
+                    data['temperature'],
+                    data['max_new_tokens'],
+                    streamer,
+                    [stopping_criteria]
+                )
+            )
+
+            thread.start()
+
+            for new_text in streamer:
+                logger.debug(new_text)
+                yield new_text
+                sys.stdout.flush()
+        else:
+            streamer = None
+
+            with torch.inference_mode():
+                output_ids = generate_wrapper(
+                    input_ids,
+                    image_tensor,
+                    data['temperature'],
+                    data['max_new_tokens'],
+                    streamer,
+                    [stopping_criteria]
+                )
+
+            # Decode the tensor to string
+            outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:], skip_special_tokens=True).strip()
+            conv.messages[-1][-1] = outputs
+            yield outputs
     except Exception as e:
         raise
 
@@ -217,29 +223,10 @@ def handler(job) -> Union[dict, str, Generator[str, None, None]]:
 # RunPod Handler                                                               #
 # ---------------------------------------------------------------------------- #
 if __name__ == '__main__':
-    INITIAL_MODEL_PATH = os.getenv('MODEL', 'liuhaotian/llava-v1.5-7b')
-    CURRENT_MODEL_PATH = INITIAL_MODEL_PATH
-    MODEL_BASE = None
-    LOAD_4BIT = False
-    LOAD_8BIT = False
-    logger = RunPodLogger()
-
-    # Model
-    model_name = get_model_name_from_path(INITIAL_MODEL_PATH)
-    logger.info(f'Loading model: {model_name}')
-
-    tokenizer, model, image_processor, context_len = load_pretrained_model(
-        INITIAL_MODEL_PATH,
-        MODEL_BASE,
-        model_name,
-        LOAD_8BIT,
-        LOAD_4BIT,
-        device='cuda'
-    )
-
     logger.info('Starting RunPod Serverless...')
     runpod.serverless.start(
         {
-            'handler': handler
+            'handler': handler,
+            'return_aggregate_stream': True
         }
     )
