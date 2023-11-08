@@ -1,5 +1,4 @@
 import os
-
 import torch
 import requests
 import base64
@@ -17,6 +16,8 @@ from llava.mm_utils import process_images, tokenizer_image_token, get_model_name
 from PIL import Image
 from io import BytesIO
 from transformers import TextStreamer
+from typing import Generator, Union
+from threading import Thread
 from schemas.input import INPUT_SCHEMA
 
 
@@ -45,6 +46,19 @@ def load_image_from_base64(base64_str: str):
     image_bytes = base64.b64decode(base64_str)
     image = Image.open(BytesIO(image_bytes)).convert('RGB')
     return image
+
+
+def generate_wrapper(input_ids, image_tensor, temperature, max_new_tokens, streamer, stopping_criteria):
+    return model.generate(
+        input_ids,
+        images=image_tensor,
+        do_sample=True,
+        temperature=temperature,
+        max_new_tokens=max_new_tokens,
+        streamer=streamer,
+        use_cache=True,
+        stopping_criteria=stopping_criteria
+    )
 
 
 def run_inference(data: dict, current_model_path: str, tokenizer, model, image_processor, context_len):
@@ -120,26 +134,43 @@ def run_inference(data: dict, current_model_path: str, tokenizer, model, image_p
 
     if data['stream']:
         streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+
+        thread = Thread(
+            target=generate_wrapper,
+            args=(
+                input_ids,
+                image_tensor,
+                data['temperature'],
+                data['max_new_tokens'],
+                streamer,
+                [stopping_criteria]
+            )
+        )
+
+        thread.start()
+
+        for new_text in streamer:
+            yield new_text
     else:
         streamer = None
 
-    with torch.inference_mode():
-        output_ids = model.generate(
-            input_ids,
-            images=image_tensor,
-            do_sample=True,
-            temperature=data['temperature'],
-            max_new_tokens=data['max_new_tokens'],
-            streamer=streamer,
-            use_cache=True,
-            stopping_criteria=[stopping_criteria])
+        with torch.inference_mode():
+            output_ids = generate_wrapper(
+                input_ids,
+                image_tensor,
+                data['temperature'],
+                data['max_new_tokens'],
+                streamer,
+                [stopping_criteria]
+            )
 
-    outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
-    conv.messages[-1][-1] = outputs
-    return outputs
+        # Decode the tensor to string
+        outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:], skip_special_tokens=True).strip()
+        conv.messages[-1][-1] = outputs
+        yield outputs
 
 
-def handler(job):
+def handler(job) -> Union[dict, str, Generator[str, None, None]]:
     validated_input = validate(job['input'], INPUT_SCHEMA)
 
     if 'errors' in validated_input:
@@ -149,21 +180,24 @@ def handler(job):
 
     try:
         payload = validated_input['validated_input']
+        stream = payload.get('stream')
+
+        data = {
+            'model_path': payload.get('model_path'),
+            'model_base': payload.get('model_base'),
+            'image': payload.get('image'),
+            'prompt': payload.get('prompt'),
+            'conv_mode': payload.get('conv_mode'),
+            'temperature': payload.get('temperature'),
+            'max_new_tokens': payload.get('max_new_tokens'),
+            'load_8bit': payload.get('load_8bit'),
+            'load_4bit': payload.get('load_4bit'),
+            'image_aspect_ratio': payload.get('image_aspect_ratio'),
+            'stream': stream
+        }
 
         outputs = run_inference(
-            {
-                'model_path': payload.get('model_path'),
-                'model_base': payload.get('model_base'),
-                'image': payload.get('image'),
-                'prompt': payload.get('prompt'),
-                'conv_mode': payload.get('conv_mode'),
-                'temperature': payload.get('temperature'),
-                'max_new_tokens': payload.get('max_new_tokens'),
-                'load_8bit': payload.get('load_8bit'),
-                'load_4bit': payload.get('load_4bit'),
-                'image_aspect_ratio': payload.get('image_aspect_ratio'),
-                'stream': payload.get('stream')
-            },
+            data,
             CURRENT_MODEL_PATH,
             tokenizer,
             model,
@@ -171,9 +205,10 @@ def handler(job):
             context_len
         )
 
-        return {
-            'response': outputs.replace('</s>', '')
-        }
+        if stream:
+            yield outputs
+        else:
+            yield '\n'.join([output.replace('</s>', '') for output in outputs])
     except Exception as e:
         raise
 
