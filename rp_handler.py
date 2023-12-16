@@ -84,9 +84,7 @@ def run_inference(data: dict, current_model_path: str, tokenizer, model, image_p
     conv = conv_templates[data['conv_mode']].copy()
 
     if 'mpt' in model_name.lower():
-        roles = ('user', 'assistant')
-    else:
-        roles = conv.roles
+        conv.roles = ('user', 'assistant')
 
     image = load_image(data['image'])
     image_tensor = process_images([image], image_processor, DictToObject(data))
