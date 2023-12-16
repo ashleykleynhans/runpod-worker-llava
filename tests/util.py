@@ -167,7 +167,7 @@ def post_request_conversation(payload, api=None):
     else:
         base_uri = f'http://127.0.0.1:8000'
 
-    if api is not None:
+    if api:
         uri = base_uri + '/' + api.lstrip('/')
     else:
         uri = f'{base_uri}/runsync'
