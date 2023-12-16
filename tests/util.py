@@ -159,6 +159,60 @@ def post_request(payload, api=None):
     else:
         print(f'ERROR: {r.content}')
 
+def post_request_conversation(payload, api=None):
+    api_key, endpoint_id = get_endpoint_details()
+
+    if api_key is not None and endpoint_id is not None:
+        base_uri = f'https://api.runpod.ai/v2/{endpoint_id}'
+    else:
+        base_uri = f'http://127.0.0.1:8000'
+
+    if api is not None:
+        uri = base_uri + '/' + api.lstrip('/')
+    else:
+        uri = f'{base_uri}/runsync'
+    r = requests.post(
+        uri,
+        headers={
+            'Authorization': f'Bearer {api_key}'
+        },
+        json=payload
+    )
+    if r.status_code == 200:
+        resp_json = r.json()
+        if 'output' in resp_json:
+            return resp_json
+        else:
+            if 'status' in resp_json:
+                job_status = resp_json['status']
+            else:
+                job_status = STATUS_FAILED
+                return resp_json
+            
+            if job_status == STATUS_IN_QUEUE or job_status == STATUS_IN_PROGRESS:
+                request_id = resp_json['id']
+                while True:
+                    r = requests.get(
+                        f'{base_uri}/status/{request_id}',
+                        headers={
+                            'Authorization': f'Bearer {api_key}'
+                        },
+                    )
+                    if r.status_code == 200:
+                        resp_json = r.json()
+                        job_status = resp_json['status']
+                        if job_status == STATUS_IN_QUEUE or job_status == STATUS_IN_PROGRESS:
+                            time.sleep(1)
+                        else:
+                            return resp_json
+                        
+            elif job_status == STATUS_COMPLETED \
+                    and 'output' in resp_json \
+                    and 'status' in resp_json['output'] \
+                    and resp_json['output']['status'] == 'error':
+                resp_json['status'] = STATUS_FAILED
+                return resp_json
+        return resp_json
 
 def stream(payload):
     api_key, endpoint_id = get_endpoint_details()
