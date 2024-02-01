@@ -1,8 +1,9 @@
 FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    PIP_PREFER_BINARY=1 \
-    PYTHONUNBUFFERED=1
+     PYTHONUNBUFFERED=1 \
+     PIP_NO_CACHE_DIR=on \
+     SHELL=/bin/bash
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 

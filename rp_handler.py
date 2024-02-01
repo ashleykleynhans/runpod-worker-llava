@@ -20,6 +20,12 @@ from transformers import TextStreamer
 from schemas.input import INPUT_SCHEMA
 
 
+INITIAL_MODEL_PATH = os.getenv('MODEL', 'liuhaotian/llava-v1.6-mistral-7b')
+CURRENT_MODEL_PATH = INITIAL_MODEL_PATH
+MODEL_BASE = None
+LOAD_4BIT = False
+LOAD_8BIT = False
+logger = RunPodLogger()
 disable_torch_init()
 
 
