@@ -1,4 +1,4 @@
 torch
 requests
 runpod
-llava_torch==1.1.1
+llava-torch==1.2.2
