@@ -31,7 +31,8 @@ pip3 install -r src/requirements.txt
 
 echo "Downloading models"
 cd /workspace/runpod-worker-llava/src
-export HUGGINGFACE_HOME="/workspace"
+export HF_HOME="/workspace"
+export MODEL="liuhaotian/llava-v1.6-mistral-7b"
 python3 download_models.py
 
 echo "Creating log directory"
