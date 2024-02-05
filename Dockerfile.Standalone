@@ -49,9 +49,6 @@ ENV HF_HOME="/workspace"
 ENV MODEL="liuhaotian/llava-v1.6-mistral-7b"
 RUN python3 /workspace/runpod-worker-llava/src/download_models.py
 
-# Copy the handler
-COPY src/rp_handler.py /workspace/runpod-worker-llava/rp_handler.py
-
 # Docker container start script
 COPY --chmod=755 start_standalone.sh /start.sh
 

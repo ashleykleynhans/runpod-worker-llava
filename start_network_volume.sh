@@ -12,8 +12,7 @@ if [ -f "/workspace/venv/bin/activate" ]; then
     export PYTHONUNBUFFERED=1
     export HF_HOME="/runpod_volume"
     source /workspace/runpod-worker-llava/venv/bin/activate
-    cd /workspace/runpod-worker-llava
-    cp /rp_handler.py .
+    cd /workspace/runpod-worker-llava/src
     python3 -u rp_handler.py
 else
     echo "ERROR: The Python Virtual Environment (/workspace/venv/bin/activate) could not be activated"
