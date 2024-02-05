@@ -16,7 +16,7 @@ from llava.mm_utils import process_images, tokenizer_image_token, get_model_name
 
 from PIL import Image
 from io import BytesIO
-from transformers import TextStreamer
+from transformers.generation.streamers import TextStreamer, TextIteratorStreamer
 from schemas.input import INPUT_SCHEMA
 
 
@@ -54,13 +54,13 @@ def load_image_from_base64(base64_str: str):
     return image
 
 
-def run_inference(data: dict, current_model_path: str):
-    global tokenizer, model, image_processor, context_len
+def run_inference(data: dict):
+    global CURRENT_MODEL_PATH, tokenizer, model, image_processor, context_len
 
     model_path = data.get('model_path')
     model_name = get_model_name_from_path(model_path)
 
-    if current_model_path != model_path:
+    if CURRENT_MODEL_PATH != model_path:
         CURRENT_MODEL_PATH = model_path
 
         tokenizer, model, image_processor, context_len = load_pretrained_model(
@@ -132,9 +132,9 @@ def run_inference(data: dict, current_model_path: str):
     stopping_criteria = KeywordsStoppingCriteria(keywords, tokenizer, input_ids)
 
     if data['stream']:
-        streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+        streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, timeout=20.0)
     else:
-        streamer = None
+        streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
 
     with torch.inference_mode():
         output_ids = model.generate(
@@ -175,8 +175,7 @@ def handler(job):
                 'load_8bit': payload.get('load_8bit'),
                 'load_4bit': payload.get('load_4bit'),
                 'stream': payload.get('stream')
-            },
-            CURRENT_MODEL_PATH,
+            }
         )
 
         return {
