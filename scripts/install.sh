@@ -12,7 +12,7 @@ echo "Cloning LLaVA Serverless Worker repo to /workspace"
 cd /workspace
 git clone https://github.com/ashleykleynhans/runpod-worker-llava.git
 cd runpod-worker-llava
-git checkout dev && \
+git checkout dev
 
 echo "Installing Ubuntu updates"
 apt update
@@ -24,7 +24,7 @@ python3 -m venv /workspace/venv
 source /workspace/venv/bin/activate
 
 echo "Installing Torch"
-pip3 install --no-cache-dir torch==${TORCH_VERSION} torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip3 install torch==${TORCH_VERSION} torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 echo "Installing LLaVA Serverless Worker"
 pip3 install -r src/requirements.txt
