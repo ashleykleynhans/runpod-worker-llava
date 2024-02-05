@@ -20,7 +20,8 @@ from transformers import TextStreamer
 from schemas.input import INPUT_SCHEMA
 
 
-INITIAL_MODEL_PATH = os.getenv('MODEL', 'liuhaotian/llava-v1.6-mistral-7b')
+DEFAULT_MODEL = 'liuhaotian/llava-v1.6-mistral-7b'
+INITIAL_MODEL_PATH = os.getenv('MODEL', DEFAULT_MODEL)
 CURRENT_MODEL_PATH = INITIAL_MODEL_PATH
 MODEL_BASE = None
 LOAD_4BIT = False
@@ -53,7 +54,9 @@ def load_image_from_base64(base64_str: str):
     return image
 
 
-def run_inference(data: dict, current_model_path: str, tokenizer, model, image_processor, context_len):
+def run_inference(data: dict, current_model_path: str):
+    global tokenizer, model, image_processor, context_len
+
     model_path = data.get('model_path')
     model_name = get_model_name_from_path(model_path)
 
@@ -71,6 +74,10 @@ def run_inference(data: dict, current_model_path: str, tokenizer, model, image_p
 
     if 'llama-2' in model_name.lower():
         conv_mode = 'llava_llama_2'
+    elif 'mistral' in model_name.lower():
+        conv_mode = 'mistral_instruct'
+    elif 'v1.6-34b' in model_name.lower():
+        conv_mode = 'chatml_direct'
     elif 'v1' in model_name.lower():
         conv_mode = 'llava_v1'
     elif 'mpt' in model_name.lower():
@@ -133,7 +140,7 @@ def run_inference(data: dict, current_model_path: str, tokenizer, model, image_p
         output_ids = model.generate(
             input_ids,
             images=image_tensor,
-            do_sample=True,
+            do_sample=True if data['temperature'] > 0 else False,
             temperature=data['temperature'],
             max_new_tokens=data['max_new_tokens'],
             streamer=streamer,
@@ -167,14 +174,9 @@ def handler(job):
                 'max_new_tokens': payload.get('max_new_tokens'),
                 'load_8bit': payload.get('load_8bit'),
                 'load_4bit': payload.get('load_4bit'),
-                'image_aspect_ratio': payload.get('image_aspect_ratio'),
                 'stream': payload.get('stream')
             },
             CURRENT_MODEL_PATH,
-            tokenizer,
-            model,
-            image_processor,
-            context_len
         )
 
         return {
@@ -188,14 +190,6 @@ def handler(job):
 # RunPod Handler                                                               #
 # ---------------------------------------------------------------------------- #
 if __name__ == '__main__':
-    INITIAL_MODEL_PATH = os.getenv('MODEL', 'liuhaotian/llava-v1.5-7b')
-    CURRENT_MODEL_PATH = INITIAL_MODEL_PATH
-    MODEL_BASE = None
-    LOAD_4BIT = False
-    LOAD_8BIT = False
-    logger = RunPodLogger()
-
-    # Model
     model_name = get_model_name_from_path(INITIAL_MODEL_PATH)
     logger.info(f'Loading model: {model_name}')
 

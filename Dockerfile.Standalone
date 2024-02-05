@@ -38,21 +38,18 @@ RUN apt update && \
 # Install the worker
 WORKDIR /workspace
 RUN git clone https://github.com/ashleykleynhans/runpod-worker-llava.git && \
-    cd runpod-worker-llava && \
-    pip3 install --no-cache-dir torch==2.0.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
-    pip3 install --no-cache-dir xformers==0.0.22 && \
-    pip3 install -r requirements.txt && \
-    pip3 install transformers==4.37.2
+    cd runpod-worker-llava/src && \
+    pip3 install --no-cache-dir torch==2.1.2 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+    pip3 install -r requirements.txt
 
 # Download the model
 COPY --chmod=755 download_models.py /download_models.py
-ENV HUGGINGFACE_HUB_CACHE="/workspace/huggingface-cache/hub"
-ENV TRANSFORMERS_CACHE="/workspace/huggingface-cache/hub"
+ENV HF_HOME="/workspace"
 ENV MODEL="liuhaotian/llava-v1.6-mistral-7b"
-RUN python3 /download_models.py
+RUN python3 /workspace/runpod-worker-llava/src/download_models.py
 
 # Copy the handler
-COPY rp_handler.py /workspace/runpod-worker-llava/rp_handler.py
+COPY src/rp_handler.py /workspace/runpod-worker-llava/rp_handler.py
 
 # Docker container start script
 COPY --chmod=755 start_standalone.sh /start.sh

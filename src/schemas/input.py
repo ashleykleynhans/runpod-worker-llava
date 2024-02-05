@@ -2,7 +2,7 @@ INPUT_SCHEMA = {
     'model_path': {
         'type': str,
         'required': False,
-        'default': 'liuhaotian/llava-v1.5-13b'
+        'default': 'liuhaotian/llava-v1.6-mistral-7b'
     },
     'model_base': {
         'type': str,
@@ -32,11 +32,6 @@ INPUT_SCHEMA = {
         'required': False,
         'default': 512
     },
-    'codeformer_fidelity': {
-        'type': float,
-        'required': False,
-        'default': 0.5
-    },
     'load_8bit': {
         'type': bool,
         'required': False,
@@ -46,11 +41,6 @@ INPUT_SCHEMA = {
         'type': bool,
         'required': False,
         'default': False
-    },
-    'image_aspect_ratio': {
-        'type': str,
-        'required': False,
-        'default': 'pad'
     },
     'stream': {
         'type': bool,

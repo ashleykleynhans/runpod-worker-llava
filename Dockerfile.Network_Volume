@@ -34,11 +34,10 @@ RUN apt update && \
     apt-get clean -y
 
 # Copy Serverless handler
-COPY rp_handler.py /
+COPY src/rp_handler.py /
 
 # Docker container start script
-ENV HUGGINGFACE_HUB_CACHE="/runpod-volume/huggingface-cache/hub"
-ENV TRANSFORMERS_CACHE="/runpod-volume/huggingface-cache/hub"
+ENV HF_HOME="/runpod-volume"
 COPY --chmod=755 start_network_volume.sh /start.sh
 
 # Start the container
