@@ -38,8 +38,9 @@ RUN apt update && \
 # Install the worker
 WORKDIR /workspace
 RUN git clone https://github.com/ashleykleynhans/runpod-worker-llava.git && \
+    cd runpod-worker-llava && \
     git checkout dev && \
-    cd runpod-worker-llava/src && \
+    cd src && \
     pip3 install --no-cache-dir torch==2.1.2 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
     pip3 install -r requirements.txt
 
