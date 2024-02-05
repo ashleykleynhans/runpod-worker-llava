@@ -37,6 +37,7 @@ automatic installation script above.
 cd /workspace
 git clone https://github.com/ashleykleynhans/runpod-worker-llava.git
 cd runpod-worker-llava
+git checkout dev
 python3 -m venv venv
 source venv/bin/activate
 cd /workspace/runpod-worker-llava/src
