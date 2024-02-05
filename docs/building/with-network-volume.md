@@ -22,7 +22,7 @@ manually below, and then you don't need to follow any of the
 manual instructions.
 
 ```bash
-wget https://raw.githubusercontent.com/ashleykleynhans/runpod-worker-instantid/main/scripts/install.sh
+wget https://raw.githubusercontent.com/ashleykleynhans/runpod-worker-llava/dev/scripts/install.sh
 chmod +x install.sh
 ./install.sh
 ```
