@@ -141,7 +141,7 @@ def run_inference(data: dict):
                 use_cache=True
             )
 
-            outputs = buf.getvalue()
+            outputs = str(buf.getvalue())
 
     if data['stream']:
         outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
