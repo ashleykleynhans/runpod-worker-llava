@@ -52,7 +52,7 @@ cd /workspace
 git clone https://github.com/haotian-liu/LLaVA.git llava
 cd llava
 pip3 install .
-pip3 install ninja
+pip3 install ninja packaging
 pip3 install flash-attn --no-build-isolation
 pip3 install transformers==4.37.2
 pip3 install protobuf
