@@ -41,4 +41,4 @@ ENV HF_HOME="/runpod-volume"
 COPY --chmod=755 start_network_volume.sh /start.sh
 
 # Start the container
-CMD /start.sh
+ENTRYPOINT /start.sh
