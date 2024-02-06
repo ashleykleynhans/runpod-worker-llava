@@ -9,7 +9,7 @@ from runpod.serverless.utils.rp_validator import validate
 from runpod.serverless.modules.rp_logger import RunPodLogger
 
 from llava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
-from llava.conversation import conv_templates, SeparatorStyle
+from llava.conversation import conv_templates
 from llava.model.builder import load_pretrained_model
 from llava.utils import disable_torch_init
 from llava.mm_utils import process_images, tokenizer_image_token, get_model_name_from_path
@@ -102,6 +102,7 @@ def run_inference(data: dict):
         roles = conv.roles
 
     image = load_image(data['image'])
+    image_size = image.size
     image_tensor = process_images([image], image_processor, DictToObject(data))
 
     if type(image_tensor) is list:
@@ -125,10 +126,7 @@ def run_inference(data: dict):
 
     conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
-
     input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).cuda()
-    stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
-    keywords = [stop_str]
 
     if data['stream']:
         streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, timeout=20.0)
@@ -139,11 +137,13 @@ def run_inference(data: dict):
         output_ids = model.generate(
             input_ids,
             images=image_tensor,
+            image_sizes=[image_size],
             do_sample=True if data['temperature'] > 0 else False,
             temperature=data['temperature'],
             max_new_tokens=data['max_new_tokens'],
             streamer=streamer,
-            use_cache=True)
+            use_cache=True
+        )
 
     outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
     conv.messages[-1][-1] = outputs
