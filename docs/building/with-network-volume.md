@@ -32,23 +32,49 @@ chmod +x install.sh
 You only need to complete the steps below if you did not run the
 automatic installation script above.
 
+1. Upgrade OS packages:
 ```bash
-1. Install LLaVA:
+apt update
+apt -y upgrade
+```
+2. Create and activate venv:
+```bash
+python3 -m venv /workspace/venv
+source /workspace/venv/bin/activate
+```
+3. Install Torch:
+```bash
+pip3 install --no-cache-dir torch==2.1.2 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
+4. Install LLaVA module:
+```bash
+cd /workspace
+git clone https://github.com/haotian-liu/LLaVA.git llava
+cd llava
+pip3 install wheel
+pip3 install -e .
+pip3 install ninja
+pip3 install flash-attn --no-build-isolation
+pip3 install transformers==4.37.2
+pip3 install protobuf
+```
+5. Install LLaVA RunPod Serverless Worker:
+```bash
 cd /workspace
 git clone https://github.com/ashleykleynhans/runpod-worker-llava.git
 cd runpod-worker-llava
 git checkout dev
-python3 -m venv venv
-source venv/bin/activate
-cd /workspace/runpod-worker-llava/src
-pip3 install --no-cache-dir torch==2.1.2 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip3 install -r requirements.txt
+pip3 install -r src/requirements.txt
 ```
-2. Download the models:
+6. Download the models:
 ```bash
 export HF_HOME="/workspace"
 export MODEL="liuhaotian/llava-v1.6-mistral-7b"
 python3 download_models.py
+```
+7. Create logs directory:
+```bash
+mkdir -p /workspace/logs
 ```
 
 ## Building the Docker Image

@@ -2,6 +2,9 @@
 
 TORCH_VERSION="2.1.2"
 
+echo "Deleting LLaVA"
+rm -rf /workspace/llava
+
 echo "Deleting LLaVA Serverless Worker"
 rm -rf /workspace/runpod-worker-llava
 
@@ -19,14 +22,25 @@ apt update
 apt -y upgrade
 
 echo "Creating and activating venv"
-cd /workspace/runpod-worker-llava
 python3 -m venv /workspace/venv
 source /workspace/venv/bin/activate
 
 echo "Installing Torch"
 pip3 install torch==${TORCH_VERSION} torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
+echo "Installing LLaVA"
+cd /workspace
+git clone https://github.com/haotian-liu/LLaVA.git llava
+cd llava
+pip3 install wheel
+pip3 install -e .
+pip3 install ninja
+pip3 install flash-attn --no-build-isolation
+pip3 install transformers==4.37.2
+pip3 install protobuf
+
 echo "Installing LLaVA Serverless Worker"
+cd /workspace/runpod-worker-llava
 pip3 install -r src/requirements.txt
 
 echo "Downloading models"

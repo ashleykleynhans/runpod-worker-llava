@@ -1,4 +1,2 @@
-torch
-requests
 runpod
-llava-torch==1.2.2.post
+huggingface_hub
