@@ -15,8 +15,9 @@ from llava.utils import disable_torch_init
 from llava.mm_utils import process_images, tokenizer_image_token, get_model_name_from_path
 
 from PIL import Image
-from io import BytesIO
+from io import BytesIO, StringIO
 from transformers.generation.streamers import TextStreamer, TextIteratorStreamer
+from contextlib import redirect_stdout
 from schemas.input import INPUT_SCHEMA
 
 
@@ -86,7 +87,7 @@ def run_inference(data: dict):
         conv_mode = 'llava_v0'
 
     if data['conv_mode'] is not None and conv_mode != data['conv_mode']:
-        print('[WARNING] the auto inferred conversation mode is {}, while `--conv-mode` is {}, using {}'.format(
+        logger.warn('The auto inferred conversation mode is {}, while `--conv-mode` is {}, using {}'.format(
             conv_mode,
             data['conv_mode'],
             data['conv_mode']
@@ -95,12 +96,6 @@ def run_inference(data: dict):
         data['conv_mode'] = conv_mode
 
     conv = conv_templates[data['conv_mode']].copy()
-
-    if 'mpt' in model_name.lower():
-        roles = ('user', 'assistant')
-    else:
-        roles = conv.roles
-
     image = load_image(data['image'])
     image_size = image.size
     image_tensor = process_images([image], image_processor, DictToObject(data))
@@ -110,19 +105,19 @@ def run_inference(data: dict):
     else:
         image_tensor = image_tensor.to(model.device, dtype=torch.float16)
 
-    inp = data['prompt']
+    prompt = data['prompt']
 
     if image is not None:
         # first message
         if model.config.mm_use_im_start_end:
-            inp = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + inp
+            prompt = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN + '\n' + prompt
         else:
-            inp = DEFAULT_IMAGE_TOKEN + '\n' + inp
-        conv.append_message(conv.roles[0], inp)
+            prompt = DEFAULT_IMAGE_TOKEN + '\n' + prompt
+        conv.append_message(conv.roles[0], prompt)
         image = None
     else:
         # later messages
-        conv.append_message(conv.roles[0], inp)
+        conv.append_message(conv.roles[0], prompt)
 
     conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
@@ -134,19 +129,30 @@ def run_inference(data: dict):
         streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
 
     with torch.inference_mode():
-        output_ids = model.generate(
-            input_ids,
-            images=image_tensor,
-            image_sizes=[image_size],
-            do_sample=True if data['temperature'] > 0 else False,
-            temperature=data['temperature'],
-            max_new_tokens=data['max_new_tokens'],
-            streamer=streamer,
-            use_cache=True
-        )
+        with StringIO() as buf, redirect_stdout(buf):
+            output_ids = model.generate(
+                input_ids,
+                images=image_tensor,
+                image_sizes=[image_size],
+                do_sample=True if data['temperature'] > 0 else False,
+                temperature=data['temperature'],
+                max_new_tokens=data['max_new_tokens'],
+                streamer=streamer,
+                use_cache=True
+            )
 
-    outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
+    if data['stream']:
+        outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
+    else:
+        outputs = buf.getvalue()
+
     conv.messages[-1][-1] = outputs
+
+    # Clean the output
+    outputs = outputs.replace('</s>', '')
+    outputs = outputs.replace('\n', '')
+    outputs = outputs.strip()
+
     return outputs
 
 
@@ -177,7 +183,7 @@ def handler(job):
         )
 
         return {
-            'response': outputs.replace('</s>', '')
+            'response': outputs
         }
     except Exception as e:
         raise
