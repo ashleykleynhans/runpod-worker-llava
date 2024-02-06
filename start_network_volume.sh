@@ -10,7 +10,7 @@ fi
 if [ -f "/workspace/venv/bin/activate" ]; then
     echo "Starting RunPod Handler"
     export PYTHONUNBUFFERED=1
-    export HF_HOME="/runpod_volume"
+    export HF_HOME="/workspace"
     source /workspace/venv/bin/activate
     cd /workspace/runpod-worker-llava/src
     python3 -u rp_handler.py
