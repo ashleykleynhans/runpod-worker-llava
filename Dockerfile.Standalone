@@ -35,20 +35,27 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean -y
 
-# Install Torch
-RUN pip3 install --no-cache-dir torch==2.1.2 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
 # Set working directory
 WORKDIR /workspace
+
+# Create venv
+RUN python3 -m venv /workspace/venv
+
+# Install Torch
+RUN source /workspace/venv/bin/activate && \
+    pip3 install --no-cache-dir torch==2.1.2 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+    deactivate
 
 # Install LLaVA
 RUN git clone https://github.com/haotian-liu/LLaVA.git llava && \
     cd /workspace/llava && \
+    source /workspace/venv/bin/activate && \
     pip3 install . && \
     pip3 install ninja packaging && \
     pip3 install flash-attn --no-build-isolation && \
     pip3 install transformers==4.37.2 && \
-    pip3 install protobuf
+    pip3 install protobuf && \
+    deactivate
 
 # Install the worker
 RUN cd /workspace && \
@@ -56,7 +63,9 @@ RUN cd /workspace && \
     cd /workspace/runpod-worker-llava && \
     git checkout dev && \
     cd src && \
-    pip3 install -r requirements.txt
+    source /workspace/venv/bin/activate && \
+    pip3 install -r requirements.txt && \
+    deactivate
 
 # Download the model
 ENV HF_HOME="/workspace"
