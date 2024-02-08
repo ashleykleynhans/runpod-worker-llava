@@ -22,7 +22,7 @@ manually below, and then you don't need to follow any of the
 manual instructions.
 
 ```bash
-wget https://raw.githubusercontent.com/ashleykleynhans/runpod-worker-llava/dev/scripts/install.sh
+wget https://raw.githubusercontent.com/ashleykleynhans/runpod-worker-llava/main/scripts/install.sh
 chmod +x install.sh
 ./install.sh
 ```
@@ -62,7 +62,6 @@ pip3 install protobuf
 cd /workspace
 git clone https://github.com/ashleykleynhans/runpod-worker-llava.git
 cd runpod-worker-llava
-git checkout dev
 pip3 install -r src/requirements.txt
 ```
 6. Download the models:

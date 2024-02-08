@@ -15,7 +15,6 @@ echo "Cloning LLaVA Serverless Worker repo to /workspace"
 cd /workspace
 git clone https://github.com/ashleykleynhans/runpod-worker-llava.git
 cd runpod-worker-llava
-git checkout dev
 
 echo "Installing Ubuntu updates"
 apt update
