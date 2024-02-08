@@ -15,7 +15,7 @@ from llava.utils import disable_torch_init
 from llava.mm_utils import process_images, tokenizer_image_token, get_model_name_from_path
 
 from PIL import Image
-from io import BytesIO, StringIO
+from io import BytesIO
 from transformers.generation.streamers import TextStreamer, TextIteratorStreamer
 from contextlib import redirect_stdout
 from schemas.input import INPUT_SCHEMA
@@ -129,29 +129,24 @@ def run_inference(data: dict):
         streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
 
     with torch.inference_mode():
-        with StringIO() as buf, redirect_stdout(buf):
-            output_ids = model.generate(
-                input_ids,
-                images=image_tensor,
-                image_sizes=[image_size],
-                do_sample=True if data['temperature'] > 0 else False,
-                temperature=data['temperature'],
-                max_new_tokens=data['max_new_tokens'],
-                streamer=streamer,
-                use_cache=True
-            )
+        output_ids = model.generate(
+            input_ids,
+            images=image_tensor,
+            image_sizes=[image_size],
+            do_sample=True if data['temperature'] > 0 else False,
+            temperature=data['temperature'],
+            max_new_tokens=data['max_new_tokens'],
+            streamer=streamer,
+            use_cache=True
+        )
 
-            outputs = str(buf.getvalue())
-
-    if data['stream']:
-        outputs = tokenizer.decode(output_ids[0, input_ids.shape[1]:]).strip()
-
+    outputs = tokenizer.decode(output_ids[0]).strip()
     conv.messages[-1][-1] = outputs
 
     # Clean the output
     outputs = outputs.replace('</s>', '')
-    outputs = outputs.replace('\n', '')
-    outputs = outputs.strip()
+    # outputs = outputs.replace('\n', '')
+    # outputs = outputs.strip()
 
     return outputs
 
