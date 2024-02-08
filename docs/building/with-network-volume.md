@@ -81,7 +81,7 @@ You can either build this Docker image yourself, your alternatively,
 you can use my pre-built image:
 
 ```
-ashleykza/runpod-worker-llava:1.2.4
+ashleykza/runpod-worker-llava:1.2.6
 ```
 
 1. Sign up for a Docker hub account if you don't already have one.
