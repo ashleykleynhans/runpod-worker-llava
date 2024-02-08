@@ -144,9 +144,9 @@ def run_inference(data: dict):
     conv.messages[-1][-1] = outputs
 
     # Clean the output
+    outputs = outputs.replace('<s>', '')
     outputs = outputs.replace('</s>', '')
-    # outputs = outputs.replace('\n', '')
-    # outputs = outputs.strip()
+    outputs = outputs.strip()
 
     return outputs
 
