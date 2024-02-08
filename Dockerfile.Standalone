@@ -73,7 +73,10 @@ RUN source /workspace/venv/bin/activate && \
     python3 /workspace/runpod-worker-llava/src/download_models.py && \
     deactivate
 
-# Docker container start script
+# Copy the Serverless handler
+COPY src/rp_handler.py --chmod=755 /workspace/runpod-worker-llava/src/rp_handler.py
+
+# Copy start script
 COPY --chmod=755 start_standalone.sh /start.sh
 
 # Start the container
