@@ -74,7 +74,7 @@ RUN source /workspace/venv/bin/activate && \
     deactivate
 
 # Copy the Serverless handler
-COPY src/rp_handler.py --chmod=755 /workspace/runpod-worker-llava/src/rp_handler.py
+COPY --chmod=755 src/rp_handler.py /workspace/runpod-worker-llava/src/rp_handler.py
 
 # Copy start script
 COPY --chmod=755 start_standalone.sh /start.sh
